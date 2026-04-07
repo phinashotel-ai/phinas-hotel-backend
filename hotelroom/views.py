@@ -7,123 +7,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from rest_framework import status
-from django.core.mail import send_mail
-from django.conf import settings
 from .models import Room, Booking, RoomRating, Payment, PromoCode
 from .serializers import RoomSerializer, BookingSerializer, RoomRatingSerializer, PaymentSerializer, PromoCodeSerializer
-
-CHECK_IN_TIME = dt_time(14, 0)
-CHECK_OUT_TIME = dt_time(12, 0)
-
-
-def _booking_check_in_dt(booking):
-    return timezone.make_aware(datetime.combine(booking.check_in, CHECK_IN_TIME))
-
-
-def _booking_check_out_dt(booking):
-    return timezone.make_aware(datetime.combine(booking.check_out, CHECK_OUT_TIME))
-
-
-def _send_booking_email(booking):
-    """Send booking confirmation email to the guest."""
-    try:
-        subject = f"Booking Confirmed – Phinas Hotel (#{booking.id})"
-        nights  = (booking.check_out - booking.check_in).days
-        body = (
-            f"Dear {booking.user.first_name},\n\n"
-            f"Your booking has been confirmed!\n\n"
-            f"Room: {booking.room.name} (#{booking.room.room_number})\n"
-            f"Check-in:  {booking.check_in} at {CHECK_IN_TIME.strftime('%I:%M %p').lstrip('0')}\n"
-            f"Check-out: {booking.check_out} at {CHECK_OUT_TIME.strftime('%I:%M %p').lstrip('0')}\n"
-            f"Nights:    {nights}\n"
-            f"Guests:    {booking.guests}\n"
-            f"Meal:      {booking.get_meal_category_display()}\n"
-        )
-        if booking.meal_addon_total:
-            body += f"Meal Add-on: {booking.meal_addon_total:,.2f}\n"
-        if booking.promo_code:
-            body += f"Promo Code: {booking.promo_code} (saved ₱{booking.discount_amount})\n"
-        body += (
-            f"Total:     ₱{booking.total_price:,.2f}\n\n"
-            f"Thank you for choosing Phinas Hotel!\n"
-            f"For inquiries: phinashotel@gmail.com\n"
-        )
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [booking.user.email], fail_silently=True)
-    except Exception:
-        pass
-
-
-def _send_booking_details_email(booking):
-    """Send a pending confirmation notice to the guest."""
-    try:
-        subject = f"Booking Received - Phinas Hotel (#{booking.id})"
-        payment = Payment.objects.filter(booking=booking).first()
-        payment_method = payment.method if payment else "N/A"
-        payment_reference = payment.reference_number if payment and payment.reference_number else booking.reference_number
-
-        body = (
-            f"Dear {booking.user.first_name}\n\n"
-            "Your booking request has been received and is now waiting for staff/admin confirmation.\n\n"
-            f"Booking ID: #{booking.id}\n"
-            f"Reference Number: {booking.reference_number}\n"
-            f"Payment Method: {payment_method}\n"
-            "Status: Pending Confirmation\n"
-        )
-        if payment_reference:
-            body += f"Payment Reference: {payment_reference}\n"
-        body += (
-            "\nWe will send your full confirmed booking details after the staff/admin team approves your reservation.\n"
-            "Please keep your reference number for follow-up and verification.\n\n"
-            "Thank you for choosing Phinas Hotel!\n"
-            "For inquiries: phinashotel@gmail.com\n"
-        )
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [booking.user.email], fail_silently=True)
-    except Exception:
-        pass
-
-
-def _send_booking_confirmation_email(booking):
-    """Send the final confirmed booking details to the guest."""
-    try:
-        subject = f"Booking Confirmed - Phinas Hotel (#{booking.id})"
-        nights = (booking.check_out - booking.check_in).days
-        payment = Payment.objects.filter(booking=booking).first()
-        payment_method = payment.method if payment else "N/A"
-        payment_reference = payment.reference_number if payment and payment.reference_number else ""
-        payment_sent_amount = payment.sent_amount if payment and payment.sent_amount is not None else None
-
-        body = (
-            f"Dear {booking.user.first_name},\n\n"
-            "Your booking has been confirmed by our staff/admin team.\n\n"
-            f"Booking ID: #{booking.id}\n"
-            f"Reference Number: {booking.reference_number}\n"
-            f"Room: {booking.room.name} (#{booking.room.room_number})\n"
-            f"Check-in:  {booking.check_in} at {CHECK_IN_TIME.strftime('%I:%M %p').lstrip('0')}\n"
-            f"Check-out: {booking.check_out} at {CHECK_OUT_TIME.strftime('%I:%M %p').lstrip('0')}\n"
-            f"Nights:    {nights}\n"
-            f"Guests:    {booking.guests}\n"
-            f"Meal:      {booking.get_meal_category_display()}\n"
-            f"Status:    {booking.status}\n"
-            f"Payment Method: {payment_method}\n"
-        )
-        if payment_reference:
-            body += f"Payment Reference: {payment_reference}\n"
-        if payment_sent_amount is not None:
-            body += f"Amount Sent: ₱{payment_sent_amount:,.2f}\n"
-        if booking.meal_addon_total:
-            body += f"Meal Add-on: {booking.meal_addon_total:,.2f}\n"
-        if booking.promo_code:
-            body += f"Promo Code: {booking.promo_code} (saved {booking.discount_amount:,.2f})\n"
-        body += (
-            f"Total:     {booking.total_price:,.2f}\n\n"
-            "Please keep this email for check-in verification.\n"
-            "Present your reference number to the staff when you arrive.\n\n"
-            "Thank you for choosing Phinas Hotel!\n"
-            "For inquiries: phinashotel@gmail.com\n"
-        )
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [booking.user.email], fail_silently=True)
-    except Exception:
-        pass
 
 
 def _is_admin_or_staff(user):
@@ -400,7 +285,6 @@ class BookingCreateView(APIView):
             status="pending" if pay_method == "cash" else "paid",
         )
 
-        _send_booking_details_email(booking)
 
         # Keep the booking pending until staff reviews it in the dashboard.
 
@@ -620,11 +504,8 @@ class AdminBookingDetailView(APIView):
                 {"error": "Resolve the pending cancellation request first."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        previous_status = booking.status
         booking.status = new_status
         booking.save()
-        if new_status == "confirmed" and previous_status != "confirmed":
-            _send_booking_confirmation_email(booking)
         return Response(BookingSerializer(booking).data)
 
     def delete(self, request, pk):

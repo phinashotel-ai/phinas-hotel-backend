@@ -73,6 +73,8 @@ class BookingSerializer(serializers.ModelSerializer):
     room_number  = serializers.CharField(source="room.room_number", read_only=True)
     room_type    = serializers.CharField(source="room.room_type",   read_only=True)
     user_name    = serializers.CharField(source="user.username",    read_only=True)
+    user_email   = serializers.EmailField(source="user.email", read_only=True)
+    user_first_name = serializers.CharField(source="user.first_name", read_only=True)
     payment      = PaymentSerializer(read_only=True)
     cancel_reviewed_by_name = serializers.CharField(source="cancel_reviewed_by.username", read_only=True, allow_null=True)
     check_in_time = serializers.SerializerMethodField()
@@ -83,7 +85,7 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Booking
         fields = [
-            "id", "user", "room", "room_name", "room_number", "room_type", "user_name",
+            "id", "user", "room", "room_name", "room_number", "room_type", "user_name", "user_email", "user_first_name",
             "reference_number",
             "check_in", "check_out", "check_in_time", "check_out_time", "check_in_at", "check_out_at",
             "guests", "meal_category", "total_price", "status",
@@ -96,7 +98,7 @@ class BookingSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "user", "total_price", "status", "created_at",
-            "room_name", "room_number", "room_type", "user_name", "payment", "reference_number",
+            "room_name", "room_number", "room_type", "user_name", "user_email", "user_first_name", "payment", "reference_number",
             "cancel_request_status", "cancel_request_reason", "cancel_requested_at",
             "cancel_reviewed_at", "cancel_reviewed_by_name",
             "free_food_guests", "extra_guest_count", "extra_guest_fee_per_night", "extra_guest_fee_total",
