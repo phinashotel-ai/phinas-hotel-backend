@@ -10,30 +10,6 @@ class Command(BaseCommand):
 
         rooms = [
             {
-                "name": "Regular Room",
-                "room_number": "103",
-                "room_type": "regular",
-                "price_per_night": 1800,
-                "capacity": 2,
-                "floor": 1,
-                "description": "A cozy regular room designed for budget-friendly comfort with the essentials covered.",
-                "amenities": ["Free WiFi", "Air Conditioning", "TV", "Hot Shower"],
-                "image_url": "",
-                "status": "available",
-            },
-            {
-                "name": "Regular Room",
-                "room_number": "104",
-                "room_type": "regular",
-                "price_per_night": 1800,
-                "capacity": 2,
-                "floor": 1,
-                "description": "A cozy regular room designed for budget-friendly comfort with the essentials covered.",
-                "amenities": ["Free WiFi", "Air Conditioning", "TV", "Hot Shower"],
-                "image_url": "",
-                "status": "available",
-            },
-            {
                 "name": "Standard Room",
                 "room_number": "101",
                 "room_type": "standard",

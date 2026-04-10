@@ -6,7 +6,6 @@ import uuid
 
 class Room(models.Model):
     ROOM_TYPES = [
-        ("regular", "Regular"),
         ("standard", "Standard"),
         ("deluxe", "Deluxe"),
         ("suite", "Suite"),
