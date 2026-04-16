@@ -221,8 +221,14 @@ class BookingCreateView(APIView):
         except Room.DoesNotExist:
             return Response({"error": "Room not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        # Sync room status before checking availability
+        room.sync_status()
+        
         if room.status == "maintenance":
-            return Response({"error": "This room is under maintenance."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "This room is under maintenance and cannot be booked."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if room.status == "occupied":
+            return Response({"error": "This room is fully booked and not available for new reservations. Please choose another room or different dates."}, status=status.HTTP_400_BAD_REQUEST)
 
         check_in_str  = request.data.get("check_in")
         check_out_str = request.data.get("check_out")
@@ -264,7 +270,7 @@ class BookingCreateView(APIView):
             check_in__lt=co, check_out__gt=ci,
         ).count()
         if overlapping >= room.get_booking_limit():
-            return Response({"error": "This room is fully booked for the selected dates."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "This room is fully booked for the selected dates. Please choose different dates or another room. You can only proceed with booking once existing guests have checked out."}, status=status.HTTP_400_BAD_REQUEST)
 
         nights      = (co - ci).days
         base_price  = nights * room.price_per_night

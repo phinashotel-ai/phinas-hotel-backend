@@ -55,16 +55,22 @@ class Room(models.Model):
         super().save(*args, **kwargs)
 
     def sync_status(self):
+        """Sync room status based on current active bookings"""
         if self.status == "maintenance":
             return
         from datetime import date
         today = date.today()
+        
+        # Count active bookings for today and future dates
         active_today = self.bookings.filter(
             status__in=("pending", "confirmed", "checked_in"),
             check_in__lte=today,
             check_out__gt=today,
         ).count()
-        new_status = "occupied" if active_today >= self.get_booking_limit() else "available"
+        
+        booking_limit = self.get_booking_limit()
+        new_status = "occupied" if active_today >= booking_limit else "available"
+        
         if self.status != new_status:
             Room.objects.filter(pk=self.pk).update(status=new_status)
             self.status = new_status
