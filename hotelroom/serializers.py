@@ -52,6 +52,15 @@ class RoomSerializer(serializers.ModelSerializer):
                 return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        capacity = attrs.get("capacity")
+        if capacity is None and self.instance is not None:
+            capacity = self.instance.capacity
+        if capacity is not None:
+            attrs["max_bookings"] = max(1, int(capacity))
+        return attrs
+
     def get_avg_rating(self, obj):
         avg = obj.ratings.aggregate(a=Avg("stars"))["a"]
         if not avg:

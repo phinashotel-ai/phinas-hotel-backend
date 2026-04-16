@@ -49,6 +49,10 @@ class Room(models.Model):
     def get_booking_limit(self):
         return max(1, self.capacity or self.max_bookings or 1)
 
+    def save(self, *args, **kwargs):
+        self.max_bookings = self.get_booking_limit()
+        super().save(*args, **kwargs)
+
     def sync_status(self):
         if self.status == "maintenance":
             return
