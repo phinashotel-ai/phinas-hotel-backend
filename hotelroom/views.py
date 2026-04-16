@@ -47,7 +47,7 @@ class RoomListView(APIView):
         capacity    = request.query_params.get("capacity")
         min_price   = request.query_params.get("min_price")
         max_price   = request.query_params.get("max_price")
-        room_status = request.query_params.get("status", "available")
+        room_status = request.query_params.get("status")
         check_in    = request.query_params.get("check_in")
         check_out   = request.query_params.get("check_out")
 

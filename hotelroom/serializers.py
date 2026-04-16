@@ -21,6 +21,8 @@ class RoomRatingSerializer(serializers.ModelSerializer):
 class RoomSerializer(serializers.ModelSerializer):
     avg_rating   = serializers.SerializerMethodField()
     rating_count = serializers.SerializerMethodField()
+    current_bookings = serializers.SerializerMethodField()
+    is_fully_booked = serializers.SerializerMethodField()
 
     class Meta:
         model  = Room
@@ -59,6 +61,19 @@ class RoomSerializer(serializers.ModelSerializer):
 
     def get_rating_count(self, obj):
         return obj.ratings.count()
+
+    def get_current_bookings(self, obj):
+        from datetime import date
+
+        today = date.today()
+        return obj.bookings.filter(
+            status__in=("pending", "confirmed", "checked_in"),
+            check_in__lte=today,
+            check_out__gt=today,
+        ).count()
+
+    def get_is_fully_booked(self, obj):
+        return self.get_current_bookings(obj) >= obj.max_bookings
 
 
 class PaymentSerializer(serializers.ModelSerializer):
