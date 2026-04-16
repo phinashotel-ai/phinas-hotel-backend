@@ -46,6 +46,9 @@ class Room(models.Model):
     def __str__(self):
         return f"{self.room_number} - {self.name}"
 
+    def get_booking_limit(self):
+        return max(1, self.capacity or self.max_bookings or 1)
+
     def sync_status(self):
         if self.status == "maintenance":
             return
@@ -56,7 +59,7 @@ class Room(models.Model):
             check_in__lte=today,
             check_out__gt=today,
         ).count()
-        new_status = "occupied" if active_today >= self.max_bookings else "available"
+        new_status = "occupied" if active_today >= self.get_booking_limit() else "available"
         if self.status != new_status:
             Room.objects.filter(pk=self.pk).update(status=new_status)
             self.status = new_status

@@ -73,7 +73,7 @@ class RoomSerializer(serializers.ModelSerializer):
         ).count()
 
     def get_is_fully_booked(self, obj):
-        return self.get_current_bookings(obj) >= obj.max_bookings
+        return self.get_current_bookings(obj) >= obj.get_booking_limit()
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -151,7 +151,7 @@ class BookingSerializer(serializers.ModelSerializer):
                 check_in__lt=check_out,
                 check_out__gt=check_in,
             ).count()
-            if overlapping_count >= room.max_bookings:
+            if overlapping_count >= room.get_booking_limit():
                 raise serializers.ValidationError("This room is fully booked for the selected dates.")
         meal_category = data.get("meal_category")
         if meal_category and meal_category not in dict(Booking.MEAL_CATEGORY_CHOICES):

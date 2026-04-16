@@ -75,7 +75,7 @@ class RoomListView(APIView):
                         check_in__lt=co,
                         check_out__gt=ci,
                     ).count()
-                    if overlap >= room.max_bookings:
+                    if overlap >= room.get_booking_limit():
                         unavailable_ids.append(room.id)
                 rooms = rooms.exclude(id__in=unavailable_ids)
             except ValueError:
@@ -102,7 +102,7 @@ class RoomDetailView(APIView):
             {"check_in": str(b["check_in"]), "check_out": str(b["check_out"])}
             for b in active_bookings
         ]
-        data["max_bookings"] = room.max_bookings
+        data["max_bookings"] = room.get_booking_limit()
         return Response(data)
 
 
@@ -211,7 +211,7 @@ class BookingCreateView(APIView):
             room=room, status__in=("pending", "confirmed", "checked_in"),
             check_in__lt=co, check_out__gt=ci,
         ).count()
-        if overlapping >= room.max_bookings:
+        if overlapping >= room.get_booking_limit():
             return Response({"error": "This room is fully booked for the selected dates."}, status=status.HTTP_400_BAD_REQUEST)
 
         nights      = (co - ci).days
@@ -411,7 +411,7 @@ class BookingDetailView(APIView):
             check_in__lt=new_check_out,
             check_out__gt=booking.check_out,
         ).exclude(pk=booking.pk).count()
-        if overlapping > 0:
+        if overlapping >= booking.room.get_booking_limit():
             return Response(
                 {"error": "This room is not available for the extra nights."},
                 status=status.HTTP_400_BAD_REQUEST,
