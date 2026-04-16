@@ -1,10 +1,6 @@
 from rest_framework import serializers
 from .models import Room, Booking, RoomRating, Payment, PromoCode
 from django.db.models import Avg
-from datetime import time as dt_time
-
-CHECK_IN_TIME = dt_time(14, 0)
-CHECK_OUT_TIME = dt_time(12, 0)
 
 
 class RoomRatingSerializer(serializers.ModelSerializer):
@@ -130,16 +126,18 @@ class BookingSerializer(serializers.ModelSerializer):
         ]
 
     def get_check_in_time(self, obj):
-        return CHECK_IN_TIME.strftime("%I:%M %p").lstrip("0")
+        return (obj.check_in_time or Booking.DEFAULT_CHECK_IN_TIME).strftime("%I:%M %p").lstrip("0")
 
     def get_check_out_time(self, obj):
-        return CHECK_OUT_TIME.strftime("%I:%M %p").lstrip("0")
+        return (obj.check_out_time or Booking.DEFAULT_CHECK_OUT_TIME).strftime("%I:%M %p").lstrip("0")
 
     def get_check_in_at(self, obj):
-        return f"{obj.check_in.isoformat()}T{CHECK_IN_TIME.strftime('%H:%M:%S')}"
+        check_in_time = obj.check_in_time or Booking.DEFAULT_CHECK_IN_TIME
+        return f"{obj.check_in.isoformat()}T{check_in_time.strftime('%H:%M:%S')}"
 
     def get_check_out_at(self, obj):
-        return f"{obj.check_out.isoformat()}T{CHECK_OUT_TIME.strftime('%H:%M:%S')}"
+        check_out_time = obj.check_out_time or Booking.DEFAULT_CHECK_OUT_TIME
+        return f"{obj.check_out.isoformat()}T{check_out_time.strftime('%H:%M:%S')}"
 
     def validate(self, data):
         check_in  = data.get("check_in")

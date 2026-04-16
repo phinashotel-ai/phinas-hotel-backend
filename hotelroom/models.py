@@ -1,6 +1,7 @@
 from django.db import models
 from user.models import CustomUser
 from decimal import Decimal
+from datetime import time as dt_time
 import uuid
 
 
@@ -93,6 +94,8 @@ class PromoCode(models.Model):
 
 
 class Booking(models.Model):
+    DEFAULT_CHECK_IN_TIME = dt_time(14, 0)
+    DEFAULT_CHECK_OUT_TIME = dt_time(12, 0)
     STATUS_CHOICES = [
         ("pending",   "Pending"),
         ("confirmed", "Confirmed"),
@@ -117,6 +120,8 @@ class Booking(models.Model):
     room             = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="bookings")
     check_in         = models.DateField()
     check_out        = models.DateField()
+    check_in_time    = models.TimeField(default=DEFAULT_CHECK_IN_TIME)
+    check_out_time   = models.TimeField(default=DEFAULT_CHECK_OUT_TIME)
     guests           = models.PositiveIntegerField(default=1)
     meal_category    = models.CharField(max_length=20, choices=MEAL_CATEGORY_CHOICES, default="breakfast")
     meal_addon_rate  = models.DecimalField(max_digits=10, decimal_places=2, default=0)

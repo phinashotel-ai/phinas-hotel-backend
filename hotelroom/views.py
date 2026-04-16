@@ -15,6 +15,50 @@ def _is_admin_or_staff(user):
     return getattr(user, "role", None) in ("admin", "staff")
 
 
+CHECK_IN_TIME_OPTIONS = {
+    "2:00 AM": dt_time(2, 0),
+    "2:00 PM": dt_time(14, 0),
+}
+CHECK_OUT_TIME_OPTIONS = {
+    "12:00 AM": dt_time(0, 0),
+    "12:00 PM": dt_time(12, 0),
+}
+DEFAULT_CHECK_IN_TIME = Booking.DEFAULT_CHECK_IN_TIME
+DEFAULT_CHECK_OUT_TIME = Booking.DEFAULT_CHECK_OUT_TIME
+
+
+def _parse_booking_time(value, *, kind):
+    normalized = str(value or "").strip().upper()
+    if kind == "check_in":
+        if not normalized:
+            return DEFAULT_CHECK_IN_TIME
+        for label, parsed in CHECK_IN_TIME_OPTIONS.items():
+            if normalized == label.upper():
+                return parsed
+        raise ValueError("Check-in time must be 2:00 AM or 2:00 PM.")
+
+    if not normalized:
+        return DEFAULT_CHECK_OUT_TIME
+    for label, parsed in CHECK_OUT_TIME_OPTIONS.items():
+        if normalized == label.upper():
+            return parsed
+    raise ValueError("Check-out time must be 12:00 AM or 12:00 PM.")
+
+
+def _format_booking_time(value):
+    return value.strftime("%I:%M %p").lstrip("0")
+
+
+def _booking_check_in_dt(booking):
+    selected_time = booking.check_in_time or DEFAULT_CHECK_IN_TIME
+    return timezone.make_aware(datetime.combine(booking.check_in, selected_time))
+
+
+def _booking_check_out_dt(booking):
+    selected_time = booking.check_out_time or DEFAULT_CHECK_OUT_TIME
+    return timezone.make_aware(datetime.combine(booking.check_out, selected_time))
+
+
 def _sync_completed_bookings():
     expired_bookings = list(
         Booking.objects.select_related("room").filter(
@@ -182,6 +226,8 @@ class BookingCreateView(APIView):
 
         check_in_str  = request.data.get("check_in")
         check_out_str = request.data.get("check_out")
+        check_in_time_str = request.data.get("check_in_time")
+        check_out_time_str = request.data.get("check_out_time")
         guests        = int(request.data.get("guests", 1))
         meal_category = str(request.data.get("meal_category", "breakfast")).strip().lower()
         special       = request.data.get("special_requests", "")
@@ -197,6 +243,12 @@ class BookingCreateView(APIView):
             co = date.fromisoformat(check_out_str)
         except ValueError:
             return Response({"error": "Use date format YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            check_in_time = _parse_booking_time(check_in_time_str, kind="check_in")
+            check_out_time = _parse_booking_time(check_out_time_str, kind="check_out")
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         if co <= ci:
             return Response({"error": "Check-out must be after check-in."}, status=status.HTTP_400_BAD_REQUEST)
@@ -246,6 +298,8 @@ class BookingCreateView(APIView):
             room=room,
             check_in=ci,
             check_out=co,
+            check_in_time=check_in_time,
+            check_out_time=check_out_time,
             guests=guests,
             meal_category=meal_category,
             total_price=total_price,
@@ -350,7 +404,7 @@ class BookingDetailView(APIView):
                 )
             if timezone.now() < _booking_check_in_dt(booking):
                 return Response(
-                    {"error": f"Check-in is only available on or after {booking.check_in} at {CHECK_IN_TIME.strftime('%I:%M %p').lstrip('0')}."},
+                    {"error": f"Check-in is only available on or after {booking.check_in} at {_format_booking_time(booking.check_in_time or DEFAULT_CHECK_IN_TIME)}."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             booking.status = "checked_in"
@@ -362,7 +416,7 @@ class BookingDetailView(APIView):
                 )
             if timezone.now() < _booking_check_out_dt(booking):
                 return Response(
-                    {"error": f"Check-out is only available on or after {booking.check_out} at {CHECK_OUT_TIME.strftime('%I:%M %p').lstrip('0')}."},
+                    {"error": f"Check-out is only available on or after {booking.check_out} at {_format_booking_time(booking.check_out_time or DEFAULT_CHECK_OUT_TIME)}."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             booking.status = "checked_out"
