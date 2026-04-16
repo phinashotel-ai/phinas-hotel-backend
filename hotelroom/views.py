@@ -138,6 +138,9 @@ class RoomDetailView(APIView):
         except Room.DoesNotExist:
             return Response({"error": "Room not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        # Sync room status before returning data
+        room.sync_status()
+        
         data = _room_serializer(room, request=request).data
         active_bookings = Booking.objects.filter(
             room=room, status__in=("pending", "confirmed", "checked_in"),
@@ -148,6 +151,39 @@ class RoomDetailView(APIView):
         ]
         data["max_bookings"] = room.get_booking_limit()
         return Response(data)
+
+
+class RoomCapacityCheckView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, pk):
+        try:
+            room = Room.objects.get(pk=pk)
+        except Room.DoesNotExist:
+            return Response({"error": "Room not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Sync room status
+        room.sync_status()
+        
+        from datetime import date
+        today = date.today()
+        current_bookings = room.bookings.filter(
+            status__in=("pending", "confirmed", "checked_in"),
+            check_in__lte=today,
+            check_out__gt=today,
+        ).count()
+        
+        max_bookings = room.get_booking_limit()
+        is_fully_booked = current_bookings >= max_bookings
+        
+        return Response({
+            "room_id": room.id,
+            "room_status": room.status,
+            "current_bookings": current_bookings,
+            "max_bookings": max_bookings,
+            "is_fully_booked": is_fully_booked,
+            "available_spots": max(0, max_bookings - current_bookings)
+        })
 
 
 class AdminRoomView(APIView):

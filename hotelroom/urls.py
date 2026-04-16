@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    RoomListView, RoomDetailView,
+    RoomListView, RoomDetailView, RoomCapacityCheckView,
     BookingCreateView, BookingListView, BookingDetailView,
     AdminBookingListView, AdminBookingDetailView,
     RoomRatingView, MyRoomRatingsView, AdminRoomRatingsView, PromoCodeValidateView, AdminPromoCodeView, AdminRoomView,
@@ -9,6 +9,7 @@ from .views import (
 urlpatterns = [
     path("rooms/",                       RoomListView.as_view(),           name="room-list"),
     path("rooms/<int:pk>/",              RoomDetailView.as_view(),         name="room-detail"),
+    path("rooms/<int:pk>/check-capacity/", RoomCapacityCheckView.as_view(), name="room-capacity-check"),
     path("rooms/admin/",                 AdminRoomView.as_view(),          name="admin-room-list"),
     path("rooms/admin/<int:pk>/",        AdminRoomView.as_view(),          name="admin-room-detail"),
     path("bookings/",                    BookingCreateView.as_view(),      name="booking-create"),
