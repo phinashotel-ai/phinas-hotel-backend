@@ -221,8 +221,8 @@ class BookingCheckInOutFlowTests(APITestCase):
         self.booking = Booking.objects.create(
             user=self.user,
             room=self.room,
-            check_in=date.today(),
-            check_out=date.today(),
+            check_in=date.today() - timedelta(days=2),
+            check_out=date.today() - timedelta(days=1),
             guests=3,
             meal_category="breakfast",
             total_price=7000,
@@ -242,3 +242,74 @@ class BookingCheckInOutFlowTests(APITestCase):
         self.assertEqual(check_out.status_code, 200)
         self.booking.refresh_from_db()
         self.assertEqual(self.booking.status, "checked_out")
+
+
+class BookingApprovalInventoryTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="guest4@example.com",
+            username="guest4",
+            password="secret123!",
+            first_name="Guest",
+            last_name="Four",
+            contact="09174444444",
+            address="Iloilo",
+            gender="Female",
+        )
+        self.admin = User.objects.create_user(
+            email="admin2@example.com",
+            username="admin2",
+            password="secret123!",
+            first_name="Admin",
+            last_name="Two",
+            role="admin",
+        )
+        self.room = Room.objects.create(
+            name="Deluxe Room",
+            room_number="404",
+            room_type="deluxe",
+            price_per_night=8000,
+            capacity=2,
+            max_bookings=1,
+            description="A deluxe room.",
+            amenities=[],
+            image_url="",
+            status="available",
+            floor=4,
+        )
+        self.booking = Booking.objects.create(
+            user=self.user,
+            room=self.room,
+            check_in=date.today() + timedelta(days=2),
+            check_out=date.today() + timedelta(days=4),
+            guests=2,
+            meal_category="breakfast",
+            total_price=16000,
+            status="pending",
+        )
+
+    def test_pending_booking_does_not_consume_room_until_confirmed(self):
+        self.room.refresh_from_db()
+        self.booking.refresh_from_db()
+
+        self.assertEqual(self.booking.status, "pending")
+        self.assertEqual(self.room.status, "available")
+
+        self.client.force_authenticate(user=self.admin)
+        admin_url = reverse("admin-booking-detail", kwargs={"pk": self.booking.id})
+
+        confirm = self.client.patch(admin_url, {"status": "confirmed"}, format="json")
+        self.assertEqual(confirm.status_code, 200)
+
+        self.room.refresh_from_db()
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, "confirmed")
+        self.assertEqual(self.room.status, "occupied")
+
+        checkout = self.client.patch(admin_url, {"status": "checked_out"}, format="json")
+        self.assertEqual(checkout.status_code, 200)
+
+        self.room.refresh_from_db()
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, "checked_out")
+        self.assertEqual(self.room.status, "available")

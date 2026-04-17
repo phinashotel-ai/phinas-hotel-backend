@@ -113,9 +113,12 @@ class RoomListView(APIView):
                 co = date.fromisoformat(check_out)
                 unavailable_ids = []
                 for room in rooms:
+                    if room.status == "occupied":
+                        unavailable_ids.append(room.id)
+                        continue
                     overlap = Booking.objects.filter(
                         room=room,
-                        status__in=("pending", "confirmed", "checked_in"),
+                        status__in=("confirmed", "checked_in"),
                         check_in__lt=co,
                         check_out__gt=ci,
                     ).count()
@@ -143,7 +146,7 @@ class RoomDetailView(APIView):
         
         data = _room_serializer(room, request=request).data
         active_bookings = Booking.objects.filter(
-            room=room, status__in=("pending", "confirmed", "checked_in"),
+            room=room, status__in=("confirmed", "checked_in"),
         ).values("check_in", "check_out")
         data["booked_ranges"] = [
             {"check_in": str(b["check_in"]), "check_out": str(b["check_out"])}
@@ -164,13 +167,8 @@ class RoomCapacityCheckView(APIView):
         
         # Sync room status
         room.sync_status()
-        
-        from datetime import date
-        today = date.today()
         current_bookings = room.bookings.filter(
-            status__in=("pending", "confirmed", "checked_in"),
-            check_in__lte=today,
-            check_out__gt=today,
+            status__in=("confirmed", "checked_in"),
         ).count()
         
         max_bookings = room.get_booking_limit()
@@ -262,6 +260,8 @@ class BookingCreateView(APIView):
         
         if room.status == "maintenance":
             return Response({"error": "This room is under maintenance and cannot be booked."}, status=status.HTTP_400_BAD_REQUEST)
+        if room.status == "occupied":
+            return Response({"error": "This room is already occupied and cannot be booked until the current guest checks out."}, status=status.HTTP_400_BAD_REQUEST)
         
         check_in_str  = request.data.get("check_in")
         check_out_str = request.data.get("check_out")
@@ -299,7 +299,7 @@ class BookingCreateView(APIView):
             return Response({"error": "Meal category must be breakfast, lunch, dinner, or both."}, status=status.HTTP_400_BAD_REQUEST)
 
         overlapping = Booking.objects.filter(
-            room=room, status__in=("pending", "confirmed", "checked_in"),
+            room=room, status__in=("confirmed", "checked_in"),
             check_in__lt=co, check_out__gt=ci,
         ).count()
         if overlapping >= room.get_booking_limit():
@@ -500,7 +500,7 @@ class BookingDetailView(APIView):
         new_check_out = booking.check_out + timedelta(days=extend_days)
         overlapping = Booking.objects.filter(
             room=booking.room,
-            status__in=("pending", "confirmed", "checked_in"),
+            status__in=("confirmed", "checked_in"),
             check_in__lt=new_check_out,
             check_out__gt=booking.check_out,
         ).exclude(pk=booking.pk).count()
@@ -597,6 +597,18 @@ class AdminBookingDetailView(APIView):
                 {"error": "Resolve the pending cancellation request first."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if new_status == "confirmed":
+            overlapping = Booking.objects.filter(
+                room=booking.room,
+                status__in=("confirmed", "checked_in"),
+                check_in__lt=booking.check_out,
+                check_out__gt=booking.check_in,
+            ).exclude(pk=booking.pk).count()
+            if overlapping >= booking.room.get_booking_limit():
+                return Response(
+                    {"error": "This room is already occupied for the selected dates. Please choose another room or different dates."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         booking.status = new_status
         booking.save()
         return Response(BookingSerializer(booking).data)

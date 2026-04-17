@@ -12,7 +12,7 @@ def _extend_stay(self, request, booking):
     # Check room availability for extended period
     overlapping = Booking.objects.filter(
         room=booking.room,
-        status__in=("pending", "confirmed", "checked_in"),
+        status__in=("confirmed", "checked_in"),
         check_in__lt=new_check_out,  # New extended checkout
         check_out__gt=booking.check_out,  # Original checkout
     ).exclude(pk=booking.pk).count()
@@ -30,7 +30,7 @@ def room_availability_check():
     for room in rooms:
         overlap = Booking.objects.filter(
             room=room,
-            status__in=("pending", "confirmed", "checked_in"),
+            status__in=("confirmed", "checked_in"),
             check_in__lt=checkout_date,  # Includes extended checkouts
             check_out__gt=checkin_date,
         ).count()

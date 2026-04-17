@@ -68,13 +68,8 @@ class RoomSerializer(serializers.ModelSerializer):
         return obj.ratings.count()
 
     def get_current_bookings(self, obj):
-        from datetime import date
-
-        today = date.today()
         return obj.bookings.filter(
-            status__in=("pending", "confirmed", "checked_in"),
-            check_in__lte=today,
-            check_out__gt=today,
+            status__in=("confirmed", "checked_in"),
         ).count()
 
     def get_is_fully_booked(self, obj):
@@ -154,7 +149,7 @@ class BookingSerializer(serializers.ModelSerializer):
         if room and check_in and check_out:
             overlapping_count = Booking.objects.filter(
                 room=room,
-                status__in=("pending", "confirmed", "checked_in"),
+                status__in=("confirmed", "checked_in"),
                 check_in__lt=check_out,
                 check_out__gt=check_in,
             ).count()

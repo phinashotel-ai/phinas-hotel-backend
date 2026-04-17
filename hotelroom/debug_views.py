@@ -34,13 +34,13 @@ class DebugRoomAvailabilityView(APIView):
         # Get active bookings
         active_bookings = Booking.objects.filter(
             room=room, 
-            status__in=("pending", "confirmed", "checked_in")
+            status__in=("confirmed", "checked_in")
         ).values('id', 'check_in', 'check_out', 'status', 'user__username')
         
         # Check for overlapping bookings
         overlapping = Booking.objects.filter(
             room=room,
-            status__in=("pending", "confirmed", "checked_in"),
+            status__in=("confirmed", "checked_in"),
             check_in__lt=check_out,
             check_out__gt=check_in,
         )
