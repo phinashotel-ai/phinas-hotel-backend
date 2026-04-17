@@ -263,9 +263,6 @@ class BookingCreateView(APIView):
         if room.status == "maintenance":
             return Response({"error": "This room is under maintenance and cannot be booked."}, status=status.HTTP_400_BAD_REQUEST)
         
-        if room.status == "occupied":
-            return Response({"error": "This room is fully booked and not available for new reservations. Please choose another room or different dates."}, status=status.HTTP_400_BAD_REQUEST)
-
         check_in_str  = request.data.get("check_in")
         check_out_str = request.data.get("check_out")
         check_in_time_str = request.data.get("check_in_time")
