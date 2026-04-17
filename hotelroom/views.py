@@ -268,7 +268,7 @@ class BookingCreateView(APIView):
         check_in_time_str = request.data.get("check_in_time")
         check_out_time_str = request.data.get("check_out_time")
         guests        = int(request.data.get("guests", 1))
-        meal_category = str(request.data.get("meal_category", "breakfast")).strip().lower()
+        meal_category = str(request.data.get("meal_category", "lunch")).strip().lower()
         special       = request.data.get("special_requests", "")
         promo_input   = request.data.get("promo_code", "").strip().upper()
         pay_method    = request.data.get("payment_method", "cash")

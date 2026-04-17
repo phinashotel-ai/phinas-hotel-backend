@@ -48,10 +48,12 @@ class Room(models.Model):
         return f"{self.room_number} - {self.name}"
 
     def get_booking_limit(self):
-        return max(1, self.capacity or self.max_bookings or 1)
+        return max(1, self.max_bookings or 1)
 
     def save(self, *args, **kwargs):
-        self.max_bookings = self.get_booking_limit()
+        # Ensure max_bookings has a default value if not set
+        if not self.max_bookings:
+            self.max_bookings = 1
         super().save(*args, **kwargs)
 
     def sync_status(self):
