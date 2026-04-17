@@ -51,8 +51,8 @@ class Room(models.Model):
         return max(1, self.max_bookings or 1)
 
     def save(self, *args, **kwargs):
-        # Ensure max_bookings has a default value if not set
-        if not self.max_bookings:
+        # Only set default max_bookings if it's not already set
+        if self.max_bookings is None or self.max_bookings == 0:
             self.max_bookings = 1
         super().save(*args, **kwargs)
 
