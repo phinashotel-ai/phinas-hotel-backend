@@ -654,13 +654,11 @@ class RoomRatingView(APIView):
     @staticmethod
     def _is_reviewable_status(status: str) -> bool:
         normalized = (status or "").strip().lower().replace("_", " ")
-        return normalized in {"completed", "checked out", "checkout"}
+        return normalized in {"completed", "confirmed", "checked in", "checked out", "checkout"}
 
     @staticmethod
     def _is_reviewable_booking(booking: Booking) -> bool:
-        if RoomRatingView._is_reviewable_status(booking.status):
-            return True
-        return timezone.now() >= _booking_check_out_dt(booking)
+        return RoomRatingView._is_reviewable_status(booking.status)
 
     def get(self, request, room_id):
         _sync_completed_bookings()

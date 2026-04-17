@@ -120,6 +120,28 @@ class RoomRatingViewTests(APITestCase):
         self.assertEqual(rating.room_id, self.room.id)
         self.assertEqual(rating.stars, 5)
 
+    def test_rating_post_allows_confirmed_booking_before_checkout(self):
+        confirmed_booking = Booking.objects.create(
+            user=self.user,
+            room=self.room,
+            check_in=date.today() + timedelta(days=1),
+            check_out=date.today() + timedelta(days=3),
+            guests=2,
+            meal_category="breakfast",
+            total_price=10000,
+            status="confirmed",
+        )
+
+        url = reverse("room-ratings", kwargs={"room_id": self.room.id})
+        res = self.client.post(
+            url,
+            {"booking_id": confirmed_booking.id, "stars": 4, "comment": "Great stay so far."},
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(RoomRating.objects.filter(booking=confirmed_booking).count(), 1)
+
 
 class BookingCancellationFlowTests(APITestCase):
     def setUp(self):
