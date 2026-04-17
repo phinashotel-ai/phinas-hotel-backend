@@ -471,9 +471,9 @@ class BookingDetailView(APIView):
         )
 
     def _extend_stay(self, request, booking):
-        if booking.status != "checked_in":
+        if booking.status not in ("confirmed", "checked_in"):
             return Response(
-                {"error": "Only checked-in bookings can be extended."},
+                {"error": "Only confirmed or checked-in bookings can be extended."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -491,26 +491,50 @@ class BookingDetailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if extend_days < 1 or extend_days > 7:
+        try:
+            extend_hours = int(request.data.get("extend_hours", 0))
+        except (TypeError, ValueError):
             return Response(
-                {"error": "You can extend between 1 and 7 days at a time."},
+                {"error": "Extension hours must be a valid number."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        new_check_out = booking.check_out + timedelta(days=extend_days)
-        overlapping = Booking.objects.filter(
+        if extend_days < 0 or extend_days > 7:
+            return Response(
+                {"error": "You can extend between 0 and 7 days at a time."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if extend_hours < 0 or extend_hours > 24:
+            return Response(
+                {"error": "You can extend between 0 and 24 hours at a time."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if extend_days == 0 and extend_hours == 0:
+            return Response(
+                {"error": "Please choose at least one extension day or hour."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_check_out_dt = _booking_check_out_dt(booking)
+        new_check_out_dt = current_check_out_dt + timedelta(days=extend_days, hours=extend_hours)
+
+        overlapping = 0
+        for other_booking in Booking.objects.filter(
             room=booking.room,
             status__in=("confirmed", "checked_in"),
-            check_in__lt=new_check_out,
-            check_out__gt=booking.check_out,
-        ).exclude(pk=booking.pk).count()
+        ).exclude(pk=booking.pk):
+            other_check_in_dt = _booking_check_in_dt(other_booking)
+            other_check_out_dt = _booking_check_out_dt(other_booking)
+            if other_check_in_dt < new_check_out_dt and other_check_out_dt > current_check_out_dt:
+                overlapping += 1
         if overlapping >= booking.room.get_booking_limit():
             return Response(
                 {"error": "This room is not available for the extra nights."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        booking.check_out = new_check_out
+        booking.check_out = new_check_out_dt.date()
+        booking.check_out_time = new_check_out_dt.time().replace(microsecond=0)
         booking.save()
         return Response(
             {

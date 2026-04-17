@@ -313,3 +313,26 @@ class BookingApprovalInventoryTests(APITestCase):
         self.booking.refresh_from_db()
         self.assertEqual(self.booking.status, "checked_out")
         self.assertEqual(self.room.status, "available")
+
+    def test_pending_booking_cannot_be_extended_until_confirmed(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("booking-detail", kwargs={"pk": self.booking.id})
+        res = self.client.patch(url, {"action": "extend_stay", "extend_days": 1}, format="json")
+
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("confirmed or checked-in", res.data["error"])
+
+    def test_confirmed_booking_can_be_extended_by_days_or_hours(self):
+        self.client.force_authenticate(user=self.admin)
+        admin_url = reverse("admin-booking-detail", kwargs={"pk": self.booking.id})
+        confirm = self.client.patch(admin_url, {"status": "confirmed"}, format="json")
+        self.assertEqual(confirm.status_code, 200)
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse("booking-detail", kwargs={"pk": self.booking.id})
+        res = self.client.patch(url, {"action": "extend_stay", "extend_days": 1, "extend_hours": 2}, format="json")
+
+        self.assertEqual(res.status_code, 200)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, "confirmed")
+        self.assertEqual(self.booking.check_out, date.today() + timedelta(days=5))
